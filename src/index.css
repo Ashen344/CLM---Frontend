@@ -74,21 +74,19 @@ body,
 
 body {
   margin: 0;
-  background: #1e1e1f;
+  background: #f7f7f8;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   color: var(--foreground);
 }
 
 .app-frame {
   min-height: 100vh;
-  padding: 20px;
-  background: #1e1e1f;
+  background: #f7f7f8;
 }
 
 .app-shell {
-  min-height: calc(100vh - 40px);
+  min-height: 100vh;
   background: #f7f7f8;
-  border: 1px solid #2c2c2f;
   overflow: hidden;
 }
 
