@@ -42,7 +42,7 @@ function AuthenticatedApp() {
       <Route path="/contracts" element={<ContractsPage />} />
       <Route path="/contracts/new" element={<CreateContractPage />} />
       <Route path="/contracts/:id" element={<ContractDetailPage />} />
-      <Route path="/notifications" element={<NotificationsPage />} />
+      <Route path="/notifications" element={<NotificationsPage />} /> 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

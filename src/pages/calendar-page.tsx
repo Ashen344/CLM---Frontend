@@ -1,31 +1,42 @@
-import { useState, useEffect, useCallback } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Bell,
-  BellOff,
-  CheckCircle2,
-  AlertTriangle,
-  Calendar,
-  Loader2,
-  ExternalLink,
-  Unplug,
-} from "lucide-react";
+import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import AppLayout from "@/components/layout/app-layout";
 import { dashboardApi, calendarApi, contractsApi } from "@/services/api";
 import type { DashboardStats, Contract, CalendarEvent } from "@/types";
 
-// ── Helpers ──
+// ─── Palette & Tokens ────────────────────────────────────────────────
+const BRAND = {
+  forest: "#0d503c",
+  emerald: "#17a369",
+  mint: "#e6f7ef",
+  slate: "#1e293b",
+  muted: "#64748b",
+  faint: "#f1f5f9",
+  white: "#ffffff",
+  amber: "#f59e0b",
+  red: "#ef4444",
+  blue: "#3b82f6",
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
+}
+
 function daysUntil(dateStr: string) {
-  return Math.ceil(
+  const diff = Math.ceil(
     (new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
+  return diff;
 }
 
 function formatDate(dateStr: string) {
@@ -36,16 +47,67 @@ function formatDate(dateStr: string) {
   });
 }
 
-function riskBadge(days: number) {
-  if (days <= 7) return { color: "text-red-600", bg: "bg-red-50", label: "Urgent" };
-  if (days <= 14) return { color: "text-amber-600", bg: "bg-amber-50", label: "Soon" };
-  return { color: "text-emerald-600", bg: "bg-emerald-50", label: "On Track" };
+function riskColor(level: string) {
+  if (level === "high") return BRAND.red;
+  if (level === "medium") return BRAND.amber;
+  return BRAND.emerald;
 }
 
-// ── Google Icon ──
+function riskLevel(days: number): string {
+  if (days <= 7) return "high";
+  if (days <= 14) return "medium";
+  return "low";
+}
+
+// ─── Icons (inline SVG) ──────────────────────────────────────────────
+function CalendarIcon({ size = 20, color = "currentColor" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+
+function BellIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+
+function CheckCircle({ size = 18, color = BRAND.emerald }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24">
+    <svg width="20" height="20" viewBox="0 0 24 24">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
@@ -54,15 +116,232 @@ function GoogleIcon() {
   );
 }
 
-// ── Main Component ──
+function AlertTriangleIcon({ size = 16, color = BRAND.amber }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────
+const s = {
+  page: {
+    minHeight: "100%",
+    background: `linear-gradient(135deg, ${BRAND.faint} 0%, ${BRAND.white} 50%, ${BRAND.mint}22 100%)`,
+    fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif",
+    color: BRAND.slate,
+    padding: "0",
+  } as CSSProperties,
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 32,
+    flexWrap: "wrap" as const,
+    gap: 16,
+  } as CSSProperties,
+  title: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: BRAND.forest,
+    margin: 0,
+    letterSpacing: "-0.5px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  } as CSSProperties,
+  subtitle: {
+    fontSize: 14,
+    color: BRAND.muted,
+    marginTop: 4,
+  } as CSSProperties,
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 380px",
+    gap: 24,
+    alignItems: "start",
+  } as CSSProperties,
+  card: {
+    background: BRAND.white,
+    borderRadius: 16,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+    overflow: "hidden",
+  } as CSSProperties,
+  calendarHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "20px 24px 16px",
+  } as CSSProperties,
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: BRAND.slate,
+  } as CSSProperties,
+  navBtns: {
+    display: "flex",
+    gap: 4,
+    alignItems: "center",
+  } as CSSProperties,
+  navBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+    background: BRAND.white,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: BRAND.muted,
+    transition: "all 0.15s",
+  } as CSSProperties,
+  todayBtn: {
+    padding: "5px 12px",
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+    background: BRAND.white,
+    fontSize: 12,
+    fontWeight: 600,
+    color: BRAND.muted,
+    cursor: "pointer",
+    marginRight: 8,
+  } as CSSProperties,
+  dayHeader: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: BRAND.muted,
+    textAlign: "center" as const,
+    padding: "8px 0",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.5px",
+  } as CSSProperties,
+  dayCell: {
+    aspectRatio: "1",
+    display: "flex",
+    flexDirection: "column" as const,
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    borderRadius: 10,
+    transition: "all 0.15s",
+    position: "relative" as const,
+    fontSize: 14,
+    fontWeight: 500,
+    gap: 3,
+  } as CSSProperties,
+  sidebar: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 20,
+  } as CSSProperties,
+  sidebarTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: BRAND.slate,
+    padding: "18px 20px 0",
+  } as CSSProperties,
+  contractItem: {
+    padding: "14px 20px",
+    borderBottom: "1px solid #f1f5f9",
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    transition: "background 0.15s",
+    cursor: "default",
+  } as CSSProperties,
+  dot: (color: string) => ({
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: color,
+    marginTop: 6,
+    flexShrink: 0,
+  }) as CSSProperties,
+  contractTitle: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: BRAND.slate,
+    lineHeight: 1.3,
+  } as CSSProperties,
+  contractMeta: {
+    fontSize: 12,
+    color: BRAND.muted,
+    marginTop: 2,
+  } as CSSProperties,
+  reminderBtn: {
+    marginLeft: "auto",
+    flexShrink: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    border: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  } as CSSProperties,
+  badge: (bg: string, color: string) => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    fontSize: 11,
+    fontWeight: 600,
+    padding: "2px 8px",
+    borderRadius: 6,
+    background: bg,
+    color: color,
+    marginTop: 4,
+  }) as CSSProperties,
+  toast: (type: string) => ({
+    position: "fixed" as const,
+    bottom: 24,
+    right: 24,
+    padding: "12px 20px",
+    borderRadius: 12,
+    background: type === "error" ? BRAND.red : type === "info" ? BRAND.blue : BRAND.forest,
+    color: BRAND.white,
+    fontSize: 14,
+    fontWeight: 600,
+    boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+    zIndex: 999,
+    animation: "slideUp 0.3s ease",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  }) as CSSProperties,
+  emptyState: {
+    padding: "32px 20px",
+    textAlign: "center" as const,
+    color: BRAND.muted,
+    fontSize: 13,
+  } as CSSProperties,
+  dotIndicator: {
+    display: "flex",
+    gap: 2,
+    marginTop: 1,
+  } as CSSProperties,
+  miniDot: (color: string) => ({
+    width: 5,
+    height: 5,
+    borderRadius: "50%",
+    background: color,
+  }) as CSSProperties,
+};
+
+// ─── Main Component ──────────────────────────────────────────────────
 export default function CalendarPage() {
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [loadingContracts, setLoadingContracts] = useState(true);
+  const [toast, setToast] = useState<{ message: string; type: string } | null>(null);
 
   // Google Calendar state
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
@@ -70,35 +349,30 @@ export default function CalendarPage() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [syncedContractIds, setSyncedContractIds] = useState<Set<string>>(new Set());
   const [addingReminder, setAddingReminder] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
-  const showToast = useCallback((message: string, type: "success" | "error" | "info" = "success") => {
+  const showToast = useCallback((message: string, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  // Fetch dashboard stats + contracts
+  // Fetch contracts
   useEffect(() => {
-    dashboardApi.getStats().then((r) => setStats(r.data)).catch(() => {});
     contractsApi
       .list({ per_page: 100 })
       .then((res) => {
         const data = res.data;
         setContracts(data.data || data || []);
       })
-      .catch(() => {})
-      .finally(() => setLoadingContracts(false));
+      .catch(() => {});
   }, []);
 
-  // Check Google Calendar connection status
+  // Check Google Calendar connection
   useEffect(() => {
     calendarApi
       .getStatus()
       .then((res) => {
         setIsGoogleConnected(res.data.connected);
-        if (res.data.connected) {
-          fetchCalendarEvents();
-        }
+        if (res.data.connected) fetchCalendarEvents();
       })
       .catch(() => {});
   }, []);
@@ -109,7 +383,6 @@ export default function CalendarPage() {
       .then((res) => {
         const events = Array.isArray(res.data) ? res.data : [];
         setCalendarEvents(events);
-        // Track which contract IDs have synced events
         const synced = new Set<string>();
         events.forEach((ev) => {
           if (ev.description?.includes("contract_id:")) {
@@ -158,13 +431,10 @@ export default function CalendarPage() {
 
     try {
       if (isSynced) {
-        // Find and delete the calendar event
         const event = calendarEvents.find(
           (ev) => ev.description?.includes(`contract_id:${contract._id}`)
         );
-        if (event) {
-          await calendarApi.deleteEvent(event.id);
-        }
+        if (event) await calendarApi.deleteEvent(event.id);
         setSyncedContractIds((prev) => {
           const next = new Set(prev);
           next.delete(contract._id);
@@ -172,7 +442,6 @@ export default function CalendarPage() {
         });
         showToast("Reminder removed from Google Calendar");
       } else {
-        // Create a calendar event for the contract expiry
         await calendarApi.createEvent({
           summary: `Contract Expiry: ${contract.title}`,
           description: `Contract "${contract.title}" is expiring.\n\nParties: ${contract.parties?.map((p) => p.name).join(", ") || "N/A"}\nType: ${contract.contract_type.replace(/_/g, " ")}\n\ncontract_id:${contract._id}`,
@@ -192,8 +461,8 @@ export default function CalendarPage() {
   };
 
   // ── Calendar grid logic ──
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+  const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
 
   const prevMonth = () => {
     if (currentMonth === 0) {
@@ -221,179 +490,247 @@ export default function CalendarPage() {
     setSelectedDay(today.getDate());
   };
 
-  const isToday = (day: number) =>
-    day === today.getDate() &&
-    currentMonth === today.getMonth() &&
-    currentYear === today.getFullYear();
-
   // Get contracts that expire on a given day
   const getContractsForDay = (day: number) => {
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     return contracts.filter((c) => c.end_date?.startsWith(dateStr));
   };
 
-  // Upcoming contracts sorted by end date
+  const selectedContracts = selectedDay ? getContractsForDay(selectedDay) : [];
+
   const upcomingContracts = [...contracts]
-    .filter((c) => daysUntil(c.end_date) > 0 && daysUntil(c.end_date) <= 90)
+    .filter((c) => daysUntil(c.end_date) > 0)
     .sort((a, b) => new Date(a.end_date).getTime() - new Date(b.end_date).getTime());
 
-  const selectedContracts = selectedDay ? getContractsForDay(selectedDay) : [];
+  const isTodayCell = (day: number) =>
+    day === today.getDate() &&
+    currentMonth === today.getMonth() &&
+    currentYear === today.getFullYear();
+
+  // Google button style
+  const googleBtnStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 20px",
+    borderRadius: 10,
+    border: `1.5px solid ${isGoogleConnected ? BRAND.emerald : "#dadce0"}`,
+    background: isGoogleConnected ? BRAND.mint : BRAND.white,
+    color: isGoogleConnected ? BRAND.forest : BRAND.slate,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+  };
 
   return (
     <AppLayout title="Calendar & Reminders">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h2 className="flex items-center gap-2.5 text-[20px] font-bold text-[#0d503c]">
-            <Calendar size={22} className="text-[#17a369]" />
-            Calendar & Reminders
-          </h2>
-          <p className="mt-1 text-[13px] text-[#64748b]">
-            Manage contract deadlines and sync reminders with Google Calendar
-          </p>
+      <div style={s.page}>
+        {/* Global animation styles */}
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700&display=swap');
+          @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+          }
+        `}</style>
+
+        {/* Header */}
+        <div style={s.header}>
+          <div>
+            <h1 style={s.title}>
+              <CalendarIcon size={26} color={BRAND.emerald} />
+              Calendar & Reminders
+            </h1>
+            <p style={s.subtitle}>
+              Manage contract deadlines and sync reminders with Google Calendar
+            </p>
+          </div>
+
+          {/* Google Calendar Connection Button */}
+          <button
+            style={googleBtnStyle}
+            onClick={isGoogleConnected ? handleDisconnectGoogle : handleConnectGoogle}
+            disabled={connectingGoogle}
+            onMouseOver={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 3px 12px rgba(0,0,0,0.1)";
+              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+            }}
+            onMouseOut={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)";
+              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+            }}
+          >
+            {isGoogleConnected ? (
+              <>
+                <CheckCircle size={18} />
+                Google Calendar Connected
+              </>
+            ) : (
+              <>
+                <GoogleIcon />
+                {connectingGoogle ? "Connecting..." : "Connect Google Calendar"}
+              </>
+            )}
+          </button>
         </div>
 
-        <button
-          onClick={isGoogleConnected ? handleDisconnectGoogle : handleConnectGoogle}
-          disabled={connectingGoogle}
-          className={`flex items-center gap-2.5 rounded-[10px] border-[1.5px] px-5 py-2.5 text-[13px] font-semibold transition shadow-sm hover:shadow-md ${
-            isGoogleConnected
-              ? "border-[#17a369] bg-[#e6f7ef] text-[#0d503c]"
-              : "border-[#dadce0] bg-white text-[#1e293b] hover:border-[#bbb]"
-          } disabled:opacity-50`}
-        >
-          {isGoogleConnected ? (
-            <>
-              <CheckCircle2 size={16} className="text-[#17a369]" />
-              Google Calendar Connected
-            </>
-          ) : (
-            <>
-              <GoogleIcon />
-              {connectingGoogle ? "Connecting..." : "Connect Google Calendar"}
-            </>
-          )}
-        </button>
-      </div>
+        {/* Main Grid */}
+        <div style={s.grid}>
+          {/* Calendar Card */}
+          <div style={s.card}>
+            <div style={s.calendarHeader}>
+              <span style={s.monthTitle}>
+                {MONTHS[currentMonth]} {currentYear}
+              </span>
+              <div style={s.navBtns}>
+                <button style={s.todayBtn} onClick={goToToday}>
+                  Today
+                </button>
+                <button style={s.navBtn} onClick={prevMonth}>
+                  <ChevronLeftIcon />
+                </button>
+                <button style={s.navBtn} onClick={nextMonth}>
+                  <ChevronRightIcon />
+                </button>
+              </div>
+            </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-[1fr_380px] gap-6 items-start">
-        {/* Calendar Card */}
-        <div className="soft-card overflow-hidden">
-          {/* Calendar header */}
-          <div className="flex items-center justify-between px-6 py-5">
-            <span className="text-[17px] font-bold text-[#1e293b]">
-              {MONTHS[currentMonth]} {currentYear}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={goToToday}
-                className="mr-2 rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#64748b] hover:bg-[#f1f5f9] transition"
-              >
-                Today
-              </button>
-              <button
-                onClick={prevMonth}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#e2e8f0] bg-white text-[#64748b] hover:bg-[#f1f5f9] transition"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                onClick={nextMonth}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#e2e8f0] bg-white text-[#64748b] hover:bg-[#f1f5f9] transition"
-              >
-                <ChevronRight size={18} />
-              </button>
+            {/* Day headers */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 1fr)",
+                padding: "0 16px",
+              }}
+            >
+              {DAYS.map((d) => (
+                <div key={d} style={s.dayHeader}>{d}</div>
+              ))}
+            </div>
+
+            {/* Day cells */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 1fr)",
+                padding: "4px 16px 16px",
+                gap: 2,
+              }}
+            >
+              {/* Empty cells for offset */}
+              {Array.from({ length: firstDay }).map((_, i) => (
+                <div key={`empty-${i}`} style={s.dayCell} />
+              ))}
+
+              {/* Actual days */}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const dayContracts = getContractsForDay(day);
+                const hasContracts = dayContracts.length > 0;
+                const isToday = isTodayCell(day);
+                const isSelected = selectedDay === day;
+
+                return (
+                  <div
+                    key={day}
+                    style={{
+                      ...s.dayCell,
+                      background: isSelected
+                        ? BRAND.forest
+                        : isToday
+                        ? BRAND.mint
+                        : "transparent",
+                      color: isSelected
+                        ? BRAND.white
+                        : isToday
+                        ? BRAND.forest
+                        : BRAND.slate,
+                      fontWeight: isToday || hasContracts ? 700 : 500,
+                      border: isToday && !isSelected
+                        ? `2px solid ${BRAND.emerald}`
+                        : "2px solid transparent",
+                    }}
+                    onClick={() => setSelectedDay(day === selectedDay ? null : day)}
+                    onMouseOver={(e) => {
+                      if (!isSelected) {
+                        (e.currentTarget as HTMLDivElement).style.background = BRAND.faint;
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (!isSelected) {
+                        (e.currentTarget as HTMLDivElement).style.background = isSelected
+                          ? BRAND.forest
+                          : isToday
+                          ? BRAND.mint
+                          : "transparent";
+                      }
+                    }}
+                  >
+                    {day}
+                    {hasContracts && (
+                      <div style={s.dotIndicator}>
+                        {dayContracts.slice(0, 3).map((c) => (
+                          <div
+                            key={c._id}
+                            style={s.miniDot(
+                              isSelected ? BRAND.white : riskColor(riskLevel(daysUntil(c.end_date)))
+                            )}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Legend */}
+            <div
+              style={{
+                display: "flex",
+                gap: 20,
+                padding: "12px 24px 18px",
+                borderTop: "1px solid #f1f5f9",
+                fontSize: 12,
+                color: BRAND.muted,
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={s.miniDot(BRAND.red)} /> High Risk
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={s.miniDot(BRAND.amber)} /> Medium Risk
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={s.miniDot(BRAND.emerald)} /> Low Risk
+              </span>
             </div>
           </div>
 
-          {/* Day headers */}
-          <div className="grid grid-cols-7 px-4">
-            {DAYS.map((d) => (
-              <div key={d} className="py-2 text-center text-[11px] font-bold uppercase tracking-wider text-[#64748b]">
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Day cells */}
-          <div className="grid grid-cols-7 gap-px bg-[#e2e8f0] px-4 pb-4">
-            {/* Empty cells for offset */}
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`e-${i}`} className="aspect-square bg-[#f8fafc]" />
-            ))}
-
-            {/* Actual days */}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const dayContracts = getContractsForDay(day);
-              const hasContracts = dayContracts.length > 0;
-              const isTodayCell = isToday(day);
-              const isSelected = selectedDay === day;
-
-              return (
-                <div
-                  key={day}
-                  onClick={() => setSelectedDay(day === selectedDay ? null : day)}
-                  className={`flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] text-[14px] font-medium transition-all ${
-                    isSelected
-                      ? "bg-[#0d503c] text-white"
-                      : isTodayCell
-                      ? "bg-[#e6f7ef] text-[#0d503c] ring-2 ring-[#17a369]"
-                      : "bg-white text-[#1e293b] hover:bg-[#f1f5f9]"
-                  } ${hasContracts ? "font-bold" : ""}`}
-                >
-                  {day}
-                  {hasContracts && (
-                    <div className="flex gap-0.5">
-                      {dayContracts.slice(0, 3).map((c) => {
-                        const days = daysUntil(c.end_date);
-                        const dotColor =
-                          days <= 7
-                            ? isSelected ? "bg-white" : "bg-red-500"
-                            : days <= 14
-                            ? isSelected ? "bg-white" : "bg-amber-500"
-                            : isSelected ? "bg-white" : "bg-emerald-500";
-                        return (
-                          <div key={c._id} className={`h-[5px] w-[5px] rounded-full ${dotColor}`} />
-                        );
-                      })}
-                    </div>
-                  )}
+          {/* Sidebar */}
+          <div style={s.sidebar}>
+            {/* Selected day detail */}
+            {selectedDay && (
+              <div style={{ ...s.card, animation: "fadeIn 0.2s ease" }}>
+                <div style={s.sidebarTitle}>
+                  {MONTHS[currentMonth]} {selectedDay}, {currentYear}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Legend */}
-          <div className="flex items-center gap-5 border-t border-[#f1f5f9] px-6 py-3 text-[12px] text-[#64748b]">
-            <span className="flex items-center gap-1.5">
-              <div className="h-[6px] w-[6px] rounded-full bg-red-500" /> Expiring &lt;7 days
-            </span>
-            <span className="flex items-center gap-1.5">
-              <div className="h-[6px] w-[6px] rounded-full bg-amber-500" /> Expiring &lt;14 days
-            </span>
-            <span className="flex items-center gap-1.5">
-              <div className="h-[6px] w-[6px] rounded-full bg-emerald-500" /> On Track
-            </span>
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="flex flex-col gap-5">
-          {/* Selected day detail */}
-          {selectedDay && (
-            <div className="soft-card overflow-hidden animate-in fade-in duration-200">
-              <div className="px-5 pt-5 text-[14px] font-bold text-[#1e293b]">
-                {MONTHS[currentMonth]} {selectedDay}, {currentYear}
-              </div>
-              {selectedContracts.length === 0 ? (
-                <div className="p-8 text-center text-[13px] text-[#64748b]">
-                  No contracts expiring on this date
-                </div>
-              ) : (
-                <div>
-                  {selectedContracts.map((c) => (
+                {selectedContracts.length === 0 ? (
+                  <div style={s.emptyState}>
+                    No contracts expiring on this date
+                  </div>
+                ) : (
+                  selectedContracts.map((c) => (
                     <ContractRow
                       key={c._id}
                       contract={c}
@@ -402,34 +739,39 @@ export default function CalendarPage() {
                       addingReminder={addingReminder}
                       onToggleReminder={handleToggleReminder}
                     />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Upcoming deadlines */}
-          <div className="soft-card overflow-hidden">
-            <div className="flex items-center justify-between px-5 pt-5">
-              <span className="text-[14px] font-bold text-[#1e293b]">
-                Upcoming Deadlines
-              </span>
-              <span className="rounded-md bg-[#0d503c] px-2 py-0.5 text-[11px] font-semibold text-white">
-                {upcomingContracts.length}
-              </span>
-            </div>
-
-            {loadingContracts ? (
-              <div className="flex items-center justify-center p-8">
-                <Loader2 className="h-5 w-5 animate-spin text-[#64748b]" />
+                  ))
+                )}
               </div>
-            ) : upcomingContracts.length === 0 ? (
-              <div className="p-8 text-center text-[13px] text-[#64748b]">
-                No upcoming deadlines
+            )}
+
+            {/* Upcoming contracts */}
+            <div style={s.card}>
+              <div
+                style={{
+                  ...s.sidebarTitle,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span>Upcoming Deadlines</span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: BRAND.white,
+                    background: BRAND.forest,
+                    borderRadius: 6,
+                    padding: "2px 8px",
+                  }}
+                >
+                  {upcomingContracts.length}
+                </span>
               </div>
-            ) : (
-              <div>
-                {upcomingContracts.slice(0, 8).map((c) => (
+              {upcomingContracts.length === 0 ? (
+                <div style={s.emptyState}>No upcoming deadlines</div>
+              ) : (
+                upcomingContracts.slice(0, 8).map((c) => (
                   <ContractRow
                     key={c._id}
                     contract={c}
@@ -439,89 +781,75 @@ export default function CalendarPage() {
                     onToggleReminder={handleToggleReminder}
                     showDaysLeft
                   />
-                ))}
+                ))
+              )}
+            </div>
+
+            {/* Google Calendar status card */}
+            {!isGoogleConnected && (
+              <div
+                style={{
+                  ...s.card,
+                  background: `linear-gradient(135deg, #eff6ff 0%, ${BRAND.white} 100%)`,
+                  padding: 20,
+                  animation: "fadeIn 0.3s ease",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    marginBottom: 10,
+                  }}
+                >
+                  <AlertTriangleIcon size={18} color={BRAND.blue} />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: BRAND.slate }}>
+                    Calendar Not Connected
+                  </span>
+                </div>
+                <p style={{ fontSize: 13, color: BRAND.muted, margin: 0, lineHeight: 1.5 }}>
+                  Connect your Google Calendar to receive automatic reminders
+                  before contracts expire. You'll get notifications 7 days and 2
+                  days before each deadline.
+                </p>
+                <button
+                  onClick={handleConnectGoogle}
+                  style={{
+                    marginTop: 14,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 16px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: BRAND.forest,
+                    color: BRAND.white,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <GoogleIcon /> Connect Now
+                </button>
               </div>
             )}
           </div>
+        </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="soft-card p-3 text-center">
-              <div className="text-[18px] font-bold text-red-600">{stats?.expiring_soon ?? 0}</div>
-              <div className="text-[10px] font-medium text-red-600">Expiring Soon</div>
-            </div>
-            <div className="soft-card p-3 text-center">
-              <div className="text-[18px] font-bold text-amber-600">{stats?.pending_approvals ?? 0}</div>
-              <div className="text-[10px] font-medium text-amber-600">Pending Approval</div>
-            </div>
-            <div className="soft-card p-3 text-center">
-              <div className="text-[18px] font-bold text-blue-600">{stats?.active_contracts ?? 0}</div>
-              <div className="text-[10px] font-medium text-blue-600">Active</div>
-            </div>
-            <div className="soft-card p-3 text-center">
-              <div className="text-[18px] font-bold text-emerald-600">{stats?.total_contracts ?? 0}</div>
-              <div className="text-[10px] font-medium text-emerald-600">Total</div>
-            </div>
+        {/* Toast notification */}
+        {toast && (
+          <div style={s.toast(toast.type)}>
+            {toast.type === "success" && <CheckCircle size={16} color={BRAND.white} />}
+            {toast.message}
           </div>
-
-          {/* Google Calendar not connected prompt */}
-          {!isGoogleConnected && (
-            <div className="soft-card overflow-hidden bg-gradient-to-br from-blue-50 to-white p-5">
-              <div className="mb-2 flex items-center gap-2">
-                <AlertTriangle size={16} className="text-blue-500" />
-                <span className="text-[13px] font-bold text-[#1e293b]">
-                  Calendar Not Connected
-                </span>
-              </div>
-              <p className="text-[12px] leading-5 text-[#64748b]">
-                Connect your Google Calendar to receive automatic reminders before
-                contracts expire. You'll get notifications before each deadline.
-              </p>
-              <button
-                onClick={handleConnectGoogle}
-                disabled={connectingGoogle}
-                className="mt-3 flex items-center gap-2 rounded-lg bg-[#0d503c] px-4 py-2 text-[12px] font-semibold text-white hover:bg-[#0a4030] transition disabled:opacity-50"
-              >
-                <GoogleIcon />
-                Connect Now
-              </button>
-            </div>
-          )}
-
-          {/* Disconnect option */}
-          {isGoogleConnected && (
-            <button
-              onClick={handleDisconnectGoogle}
-              className="flex items-center justify-center gap-2 rounded-lg border border-[#e2e8f0] py-2.5 text-[12px] text-[#64748b] hover:bg-[#f1f5f9] hover:text-red-500 transition"
-            >
-              <Unplug size={14} />
-              Disconnect Google Calendar
-            </button>
-          )}
-        </div>
+        )}
       </div>
-
-      {/* Toast */}
-      {toast && (
-        <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl px-5 py-3 text-[13px] font-semibold text-white shadow-lg animate-in slide-in-from-bottom-4 duration-300 ${
-            toast.type === "error"
-              ? "bg-red-500"
-              : toast.type === "info"
-              ? "bg-blue-500"
-              : "bg-[#0d503c]"
-          }`}
-        >
-          {toast.type === "success" && <CheckCircle2 size={16} />}
-          {toast.type === "error" && <AlertTriangle size={16} />}
-          {toast.message}
-        </div>
-      )}
     </AppLayout>
   );
 }
 
-// ── Contract Row Component ──
+// ─── Contract Row Sub-component ──────────────────────────────────────
 function ContractRow({
   contract,
   isSynced,
@@ -538,48 +866,44 @@ function ContractRow({
   showDaysLeft?: boolean;
 }) {
   const days = daysUntil(contract.end_date);
+  const level = riskLevel(days);
   const isAdding = addingReminder === contract._id;
-  const badge = riskBadge(days);
 
   return (
-    <div className="flex items-start gap-3 border-b border-[#f1f5f9] px-5 py-3.5 transition hover:bg-[#f8fafc]">
-      {/* Risk dot */}
-      <div
-        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-          days <= 7 ? "bg-red-500" : days <= 14 ? "bg-amber-500" : "bg-emerald-500"
-        }`}
-      />
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-semibold text-[#1e293b] truncate">
-          {contract.title}
-        </div>
-        <div className="mt-0.5 text-[11px] text-[#64748b]">
-          {contract.parties?.[0]?.name || contract.contract_type.replace(/_/g, " ")} &middot;{" "}
+    <div
+      style={s.contractItem}
+      onMouseOver={(e) => ((e.currentTarget as HTMLDivElement).style.background = BRAND.faint)}
+      onMouseOut={(e) => ((e.currentTarget as HTMLDivElement).style.background = "transparent")}
+    >
+      <div style={s.dot(riskColor(level))} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={s.contractTitle}>{contract.title}</div>
+        <div style={s.contractMeta}>
+          {contract.parties?.[0]?.name || contract.contract_type.replace(/_/g, " ")} ·{" "}
           {formatDate(contract.end_date)}
         </div>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {showDaysLeft && days <= 30 && (
-            <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold ${badge.bg} ${badge.color}`}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+          {showDaysLeft && days <= 14 && (
+            <span style={s.badge("#fef2f2", BRAND.red)}>
               {days <= 0 ? "Expired" : `${days}d left`}
             </span>
           )}
           {isSynced && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-[#e6f7ef] px-2 py-0.5 text-[10px] font-semibold text-[#0d503c]">
-              <Bell size={10} /> Synced
+            <span style={s.badge(BRAND.mint, BRAND.forest)}>
+              <BellIcon size={11} color={BRAND.forest} /> Synced
             </span>
           )}
         </div>
       </div>
 
-      {/* Reminder button */}
+      {/* Reminder toggle button */}
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleReminder(contract);
+        style={{
+          ...s.reminderBtn,
+          background: isSynced ? BRAND.mint : BRAND.faint,
+          color: isSynced ? BRAND.forest : BRAND.muted,
+          opacity: !isGoogleConnected ? 0.4 : 1,
         }}
-        disabled={isAdding}
         title={
           !isGoogleConnected
             ? "Connect Google Calendar first"
@@ -587,18 +911,13 @@ function ContractRow({
             ? "Remove from Google Calendar"
             : "Add to Google Calendar"
         }
-        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
-          isSynced
-            ? "bg-[#e6f7ef] text-[#0d503c] hover:bg-[#d1f0e0]"
-            : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0]"
-        } ${!isGoogleConnected ? "opacity-40 cursor-not-allowed" : ""} disabled:opacity-50`}
+        onClick={() => onToggleReminder(contract)}
+        disabled={isAdding}
       >
         {isAdding ? (
-          <Loader2 size={14} className="animate-spin" />
-        ) : isSynced ? (
-          <Bell size={14} />
+          <span style={{ fontSize: 12 }}>...</span>
         ) : (
-          <BellOff size={14} />
+          <BellIcon size={16} color={isSynced ? BRAND.forest : BRAND.muted} />
         )}
       </button>
     </div>
