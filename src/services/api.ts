@@ -12,6 +12,9 @@ import type {
   AIAnalysisResult,
   AIChatRequest,
   AIGenerateDraftRequest,
+  CalendarEvent,
+  CalendarEventCreate,
+  CalendarEventUpdate,
 } from "@/types";
 
 const api = axios.create({
@@ -167,6 +170,26 @@ export const dashboardApi = {
     api.get<Contract[]>("/api/dashboard/recent-activity"),
   getMonthlyStats: () =>
     api.get<ChartDataItem[]>("/api/dashboard/monthly-stats"),
+};
+
+// ── Google Calendar ──
+export const calendarApi = {
+  getConnectUrl: () =>
+    api.get<{ auth_url: string }>("/api/calendar/connect"),
+  getStatus: () =>
+    api.get<{ connected: boolean }>("/api/calendar/status"),
+  disconnect: () =>
+    api.post("/api/calendar/disconnect"),
+  listEvents: (params?: { time_min?: string; time_max?: string; max_results?: number }) =>
+    api.get<CalendarEvent[]>("/api/calendar/events", { params }),
+  getEvent: (eventId: string) =>
+    api.get<CalendarEvent>(`/api/calendar/events/${eventId}`),
+  createEvent: (data: CalendarEventCreate) =>
+    api.post<CalendarEvent>("/api/calendar/events", data),
+  updateEvent: (eventId: string, data: CalendarEventUpdate) =>
+    api.put<CalendarEvent>(`/api/calendar/events/${eventId}`, data),
+  deleteEvent: (eventId: string) =>
+    api.delete(`/api/calendar/events/${eventId}`),
 };
 
 export default api;

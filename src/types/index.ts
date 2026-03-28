@@ -287,3 +287,43 @@ export interface AIGenerateDraftRequest {
   key_terms: string;
   additional_instructions?: string;
 }
+
+// ── Google Calendar ──
+export interface CalendarEventDateTime {
+  dateTime?: string;
+  date?: string;
+  timeZone?: string;
+}
+
+export interface CalendarEventCreate {
+  summary: string;
+  description?: string;
+  location?: string;
+  start: CalendarEventDateTime;
+  end: CalendarEventDateTime;
+  attendees?: string[];
+  contract_id?: string;
+}
+
+export interface CalendarEventUpdate {
+  summary?: string;
+  description?: string;
+  location?: string;
+  start?: CalendarEventDateTime;
+  end?: CalendarEventDateTime;
+  attendees?: string[];
+}
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  location?: string;
+  start: CalendarEventDateTime;
+  end: CalendarEventDateTime;
+  attendees?: { email: string; responseStatus?: string }[];
+  htmlLink?: string;
+  status?: string;
+  created?: string;
+  updated?: string;
+}
